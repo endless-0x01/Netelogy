@@ -149,7 +149,7 @@ def average_student(students: Student, course):
         if course in student.grades:
             all_grades.extend(student.grades[course])
 
-    return round(sum(all_grades) / len(all_grades) , 1)
+    return round(sum(all_grades) / len(all_grades) , 1) if all_grades else 0
 
 def average_lectors(lectors: Lecturer, course):
     all_grades = []
@@ -157,7 +157,7 @@ def average_lectors(lectors: Lecturer, course):
         if course in lecter.grades:
             all_grades.extend(lecter.grades[course])
     
-    return round(sum(all_grades) / len(all_grades) , 1)
+    return round(sum(all_grades) / len(all_grades) , 1) if all_grades else 0
 
 
 
