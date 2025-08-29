@@ -38,11 +38,11 @@ def find_uk_city(coordinates: list) -> str:
         else:
             answer = responce.json()
 
-        if answer['address']['city'] in city_british:
+        if answer["address"]["city"] in city_british:
             # POPULAR_UK_CITIES.append(answer['address']['city'])
-            return answer['address']['city']
+            return answer["address"]["city"]
 
-    return '\n'.join(POPULAR_UK_CITIES)
+    return "\n".join(POPULAR_UK_CITIES)
 
 
 if __name__ == "__main__":

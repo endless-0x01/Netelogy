@@ -36,7 +36,6 @@ def show(cook_book):
 def get_shop_list_by_dishes(dishes, count_person):
     cook_book = parse_cook_book()
 
-
     ingredients_for_dishes = dict()
 
     for dish in dishes:
@@ -58,9 +57,6 @@ def get_shop_list_by_dishes(dishes, count_person):
                 }
 
     return ingredients_for_dishes
-
-
-
 
 
 def main():

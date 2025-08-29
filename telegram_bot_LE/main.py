@@ -1,5 +1,10 @@
 import telebot
-from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+from telebot.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+    Message,
+)
 from configure import TOKEN_TG
 from database import operations
 from UserStates import UserStateManager
@@ -9,13 +14,25 @@ bot = telebot.TeleBot(TOKEN_TG)
 user_states_manager = UserStateManager()
 
 
+WELCOME_TEXT = (
+    "Давай попрактикуемся в английском языке. "
+    "Тренировки можешь проходить в удобном для себя темпе.\n"
+    "У тебя есть возможность использовать тренажёр, как конструктор, "
+    "и собирать свою собственную базу для обучения.\n"
+    "Для этого воспрользуйся инструментами:\n\n"
+    "        добавить слово ➕,\n"
+    "        удалить слово  🔙.\n"
+    "        Ну что, начнём ⬇️"
+)
+
+
 class Command:
     start_test = "🎯 Начать тест"
     add_word = "➕ Добавить слово"
     delete_word = "🔙 Удалить слово"
     show_stats = "📊 Статистика"
 
-    def get_buttons():
+    def get_buttons() -> InlineKeyboardMarkup:
         keyboard = InlineKeyboardMarkup(row_width=2)
         keyboard.add(
             InlineKeyboardButton("🎯 Начать тест", callback_data="start_test"),
@@ -26,96 +43,150 @@ class Command:
         return keyboard
 
 
-def start_test_mode(chat_id, user_id):
+def start_test_mode(chat_id: int, user_id: int) -> None:
 
-    user = operations.check_user_in_db(user_id)
+    try:
+        user = operations.check_user_in_db(user_id)
 
-    if not user:
-        bot.send_message(chat_id, "Пользователь не найден в базе данных!")
-        return
+        if not user:
+            try:
+                bot.send_message(chat_id, "Пользователь не найден в базе данных!")
+                return
+            except Exception as e:
+                print(f"Ошибка при отправки сообщения: {e}")
+            return
 
-    data = operations.get_words_for_user(user.id)
-    correct_answer = data["correct_answer"]
+        data = operations.get_words_for_user(user.id)
 
-    if not data:
-        bot.send_message(chat_id, "У вас нет слов для изучения")
-        return
+        if not data:
+            try:
+                bot.send_message(chat_id, "У вас нет слов для изучения")
+            except Exception as e:
+                print(f"Ошибка при отправки сообщения: {e}")
+            return
 
-    keyboard = InlineKeyboardMarkup(row_width=2)
+        correct_answer = data["correct_answer"]
 
-    for i in range(0, len(data["options"]), 2):
-        if i + 1 < len(data["options"]):
-            keyboard.add(
-                InlineKeyboardButton(
-                    data["options"][i],
-                    callback_data=f"answer_{data['word_id']}_{correct_answer}_{data['options'][i]}",
-                ),
-                InlineKeyboardButton(
-                    data["options"][i + 1],
-                    callback_data=f"answer_{data['word_id']}_{correct_answer}_{data['options'][i+1]}",
-                ),
-            )
-        else:
-            keyboard.add(
-                InlineKeyboardButton(
-                    data["options"][i],
-                    callback_data=f"answer_{data['word_id']}_{correct_answer}_{data['options'][i]}",
+        keyboard = InlineKeyboardMarkup(row_width=2)
+
+        for i in range(0, len(data["options"]), 2):
+            if i + 1 < len(data["options"]):
+                keyboard.add(
+                    InlineKeyboardButton(
+                        data["options"][i],
+                        callback_data=f"answer_{
+                            data['word_id']}_{correct_answer}_{
+                            data['options'][i]}",
+                    ),
+                    InlineKeyboardButton(
+                        data["options"][i + 1],
+                        callback_data=f"answer_{
+                            data['word_id']}_{correct_answer}_"
+                        f"{data['options'][i + 1]}",
+                    ),
                 )
+            else:
+                keyboard.add(
+                    InlineKeyboardButton(
+                        data["options"][i],
+                        callback_data=f"answer_{
+                            data['word_id']}_{correct_answer}_{
+                            data['options'][i]}",
+                    )
+                )
+
+        keyboard.add(
+            InlineKeyboardButton("➕ Добавить слово", callback_data="add_word_mode")
+        )
+        keyboard.add(
+            InlineKeyboardButton("🔙 Удалить слово", callback_data="delete_word_mode")
+        )
+
+        question_text = f"Передите следующие слово: <b>{
+            data['question_word']}</b>"
+        bot.send_message(
+            chat_id, question_text, reply_markup=keyboard, parse_mode="HTML"
+        )
+
+    except Exception as e:
+        print(f"Критическая ошибка в start_test_mode: {e}")
+        try:
+            bot.send_message(chat_id, "Произошла ошибка")
+        except BaseException:
+            print("Не удалось отправить сообщение об ошибке")
+
+
+def check_answer(call: CallbackQuery) -> None:
+    try:
+        parts = call.data.split("_")
+        word_id = int(parts[1])
+        correct_answer = parts[2]
+        selected_answer = parts[3]
+
+        try:
+            bot.send_message(call.message.chat.id, f"Ваш ответ: {selected_answer}")
+        except Exception as e:
+            print(f"Ошибка при отправке ответа: {e}")
+            return
+
+        if selected_answer == correct_answer:
+            result_message = "Вы ответили правильно! ✅"
+            is_correct = True
+
+            keyboard = InlineKeyboardMarkup()
+            keyboard.add(
+                InlineKeyboardButton("⏩ Следующее слово", callback_data="start_test")
             )
+            keyboard.add(
+                InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu")
+            )
+            try:
+                bot.send_message(call.message.chat.id, result_message)
+                bot.send_message(
+                    call.message.chat.id, "Что делаем дальше?", reply_markup=keyboard
+                )
+            except Exception as e:
+                print(f"Ошибка при отправке сообщения о правильном ответе: {e}")
+        else:
+            result_message = f"❌ Неправильно! Правильный ответ: {correct_answer}"
+            is_correct = False
 
-    keyboard.add(
-        InlineKeyboardButton("➕ Добавить слово", callback_data="add_word_mode")
-    )
-    keyboard.add(
-        InlineKeyboardButton("🔙 Удалить слово", callback_data="delete_word_mode")
-    )
+            keyboard = InlineKeyboardMarkup()
+            keyboard.add(
+                InlineKeyboardButton("🔄 Попробовать снова", callback_data="start_test")
+            )
+            keyboard.add(
+                InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu")
+            )
+            try:
+                bot.send_message(call.message.chat.id, result_message)
+                bot.send_message(
+                    call.message.chat.id,
+                    "Попробуйте еще раз или вернитесь в меню:",
+                    reply_markup=keyboard,
+                )
+            except Exception as e:
+                print(f"Ошибка при отправке сообщения о неправильном ответе: {e}")
 
-    question_text = f"Передите следующие слово: <b>{data['question_word']}</b>"
-    bot.send_message(chat_id, question_text, reply_markup=keyboard, parse_mode="HTML")
+        try:
+            user_id = operations.check_user_in_db(call.from_user.id)
+            if user_id:
+                operations.record_result_user(user_id.id, word_id, is_correct)
+        except Exception as e:
+            print(f"Ошибка при сохранении результата в БД: {e}")
 
-
-def check_answer(call):
-    parts = call.data.split("_")
-    word_id = int(parts[1])
-    correct_answer = parts[2]
-    selected_answer = parts[3]
-    bot.send_message(call.message.chat.id, f"Ваш ответ: {selected_answer}")
-
-    if selected_answer == correct_answer:
-        result_message = "Вы ответили правильно! ✅"
-        is_correct = True
-
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(
-            InlineKeyboardButton("⏩ Следующее слово", callback_data="start_test")
-        )
-        keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu"))
-        bot.send_message(call.message.chat.id, result_message)
-        bot.send_message(
-            call.message.chat.id, "Что делаем дальше?", reply_markup=keyboard
-        )
-    else:
-        result_message = f"❌ Неправильно! Правильный ответ: {correct_answer}"
-        is_correct = False
-
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(
-            InlineKeyboardButton("🔄 Попробовать снова", callback_data="start_test")
-        )
-        keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="main_menu"))
-        bot.send_message(call.message.chat.id, result_message)
-        bot.send_message(
-            call.message.chat.id,
-            "Попробуйте еще раз или вернитесь в меню:",
-            reply_markup=keyboard,
-        )
-
-    user_id = operations.check_user_in_db(call.from_user.id)
-    operations.record_result_user(user_id.id, word_id, is_correct)
+    except Exception as e:
+        print(f"Критическая ошибка в check_answer: {e}")
+        try:
+            bot.send_message(
+                call.message.chat.id, "⚠️ Произошла ошибка при обработке ответа"
+            )
+        except BaseException:
+            print("Не удалось отправить сообщение об ошибке")
 
 
 @bot.message_handler(func=lambda message: not message.text.startswith("/"))
-def handle_text_input(message):
+def handle_text_input(message: Message) -> None:
 
     user_id = operations.check_user_in_db(message.from_user.id).id
 
@@ -136,14 +207,17 @@ def handle_text_input(message):
 
             user_states_manager.set_data(user_id, "english_word", message.text)
 
-            bot.send_message(message.chat.id, f"Английское слово: {message.text}")
+            bot.send_message(
+                message.chat.id,
+                f"Английское слово: {
+                    message.text}",
+            )
             bot.send_message(message.chat.id, "Теперь введите категорию")
 
             user_states_manager.set_state(user_id, "waiting_category")
             current_state = "waiting_category"
 
         elif current_state == "waiting_category":
-    
 
             user_states_manager.set_data(user_id, "category", message.text)
             bot.send_message(message.chat.id, f"Категория: {message.text}")
@@ -157,7 +231,9 @@ def handle_text_input(message):
             if result:
                 bot.send_message(message.chat.id, "Слово добавлено!")
             else:
-                bot.send_message(message.chat.id, "Такое слово уже есть в вашем словаре")
+                bot.send_message(
+                    message.chat.id, "Такое слово уже есть в вашем словаре"
+                )
 
             user_states_manager.clear_user(user_id)
 
@@ -165,23 +241,40 @@ def handle_text_input(message):
                 message.chat.id, "Главное меню", reply_markup=Command.get_buttons()
             )
 
-        elif current_state == 'waiting_word_search':
+        elif current_state == "waiting_word_search":
             found_words = operations.find_word_by_name(user_id, message.text)
             keyboard = InlineKeyboardMarkup(row_width=2)
             if found_words:
                 for user_word, word in found_words:
-                    keyboard.add(InlineKeyboardButton(word.russian_word, callback_data=f'delete_word_{user_word.user_id}_{word.id}'))
-                
-                bot.send_message(message.chat.id, 'Выберите слово для удаления', reply_markup=keyboard)
+                    keyboard.add(
+                        InlineKeyboardButton(
+                            word.russian_word,
+                            callback_data=f"delete_word_{
+                                user_word.user_id}_{
+                                word.id}",
+                        )
+                    )
+
+                bot.send_message(
+                    message.chat.id,
+                    "Выберите слово для удаления",
+                    reply_markup=keyboard,
+                )
             else:
-                bot.send_message(message.chat.id, 'Слово не найдено!')
-                keyboard.add(InlineKeyboardButton('Главное меню 🏠', callback_data=f'main_menu'))
-                bot.send_message(message.chat.id, 'Вернуться в главнео меню 🏠', reply_markup=keyboard)
+                bot.send_message(message.chat.id, "Слово не найдено!")
+                keyboard.add(
+                    InlineKeyboardButton("Главное меню 🏠", callback_data="main_menu")
+                )
+                bot.send_message(
+                    message.chat.id,
+                    "Вернуться в главнео меню 🏠",
+                    reply_markup=keyboard,
+                )
     else:
         bot.send_message(message.chat.id, f"Вы ввели слово: {message.text}")
 
 
-def add_word_mode(chat_id, user_id):
+def add_word_mode(chat_id: int, user_id: int) -> None:
     user_id_ = operations.check_user_in_db(user_id).id
     user_states_manager.set_state(user_id_, "waiting_russian_word")
 
@@ -190,16 +283,19 @@ def add_word_mode(chat_id, user_id):
     keyboard.add(InlineKeyboardButton("❌ Отмена", callback_data="main_menu"))
     bot.send_message(chat_id, "Или нажмите отмена", reply_markup=keyboard)
 
-def delete_word_mode(chat_id, user_id):
-    user_states_manager.set_state(operations.check_user_in_db(user_id).id, 'waiting_word_search')
-    bot.send_message(chat_id, 'Введите названия слова для поиска:')
+
+def delete_word_mode(chat_id: int, user_id: int) -> None:
+    user_states_manager.set_state(
+        operations.check_user_in_db(user_id).id, "waiting_word_search"
+    )
+    bot.send_message(chat_id, "Введите названия слова для поиска:")
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("❌ Отмена", callback_data="main_menu"))
     bot.send_message(chat_id, "Или нажмите отмена", reply_markup=keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: True)
-def handle_button_click(call):
+def handle_button_click(call: CallbackQuery) -> None:
     bot.answer_callback_query(call.id)
 
     if call.data == "start_test":
@@ -218,30 +314,45 @@ def handle_button_click(call):
         )
     elif call.data == "add_word_mode":
         add_word_mode(call.message.chat.id, call.from_user.id)
-    elif call.data == 'delete_word_mode':
+    elif call.data == "delete_word_mode":
         delete_word_mode(call.message.chat.id, call.from_user.id)
-    elif call.data.startswith('delete_word_'):
-        parts = call.data.split('_')
+    elif call.data.startswith("delete_word_"):
+        parts = call.data.split("_")
         user_word_id = int(parts[2])
         word_id = int(parts[3])
         result = operations.delete_word_for_user(user_word_id, word_id)
 
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton('Вернуться в главное меню 🏠', callback_data='main_menu'))
+        keyboard.add(
+            InlineKeyboardButton(
+                "Вернуться в главное меню 🏠", callback_data="main_menu"
+            )
+        )
 
         if result:
-            bot.send_message(call.message.chat.id, 'Слово успешно удалено!')
-            bot.send_message(call.message.chat.id, 'Вернуться в главное меню 🏠', reply_markup=keyboard)
+            bot.send_message(call.message.chat.id, "Слово успешно удалено!")
+            bot.send_message(
+                call.message.chat.id,
+                "Вернуться в главное меню 🏠",
+                reply_markup=keyboard,
+            )
         else:
-            bot.send_message(call.message.chat.id, 'Мы не смогли удалить данное слово')
-            bot.send_message(call.message.chat.id, 'Вернуться в главное меню 🏠', reply_markup=keyboard)
-
+            bot.send_message(call.message.chat.id, "Мы не смогли удалить данное слово")
+            bot.send_message(
+                call.message.chat.id,
+                "Вернуться в главное меню 🏠",
+                reply_markup=keyboard,
+            )
 
 
 @bot.message_handler(commands=["start"])
-def send_welcome(message):
+def send_welcome(message: Message) -> None:
     if operations.check_user_in_db(message.from_user.id):
-        bot.reply_to(message, f"Рады снова тебя видеть {message.from_user.username}!")
+        bot.reply_to(
+            message,
+            f"Рады снова тебя видеть {
+                message.from_user.username}!",
+        )
     else:
         data_user = {
             "id": message.from_user.id,
@@ -250,14 +361,8 @@ def send_welcome(message):
             "lname": message.from_user.last_name,
         }
 
-        welcome_text = """Давай попрактикуемся в английском языке. Тренировки можешь проходить в удобном для себя темпе.
-У тебя есть возможность использовать тренажёр, как конструктор, и собирать свою собственную базу для обучения. 
-Для этого воспрользуйся инструментами:
+        welcome_text = WELCOME_TEXT
 
-        добавить слово ➕,
-        удалить слово  🔙.
-        Ну что, начнём ⬇️
-                    """
         operations.create_user_db(data_user)
         bot.reply_to(
             message, f"Привет {message.from_user.first_name} 👋, {welcome_text}"

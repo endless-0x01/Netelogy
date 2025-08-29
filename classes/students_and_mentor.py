@@ -138,27 +138,25 @@ class Reviewer(Mentor):
 
     def __str__(self):
         return f"Имя: {self.name}\nФамилия: {self.surname}"
-    
-
 
 
 def average_student(students: Student, course):
     all_grades = []
-    
+
     for student in students:
         if course in student.grades:
             all_grades.extend(student.grades[course])
 
-    return round(sum(all_grades) / len(all_grades) , 1) if all_grades else 0
+    return round(sum(all_grades) / len(all_grades), 1) if all_grades else 0
+
 
 def average_lectors(lectors: Lecturer, course):
     all_grades = []
     for lecter in lectors:
         if course in lecter.grades:
             all_grades.extend(lecter.grades[course])
-    
-    return round(sum(all_grades) / len(all_grades) , 1) if all_grades else 0
 
+    return round(sum(all_grades) / len(all_grades), 1) if all_grades else 0
 
 
 lecturer1 = Lecturer("Иван", "Иванов")
@@ -209,8 +207,7 @@ print(lecturer1)
 print(lecturer2)
 
 
-
 students = [student1, student2]
 lecturers = [lecturer1, lecturer2]
-print("\nСредняя оценка студентов по Python:", average_student(students, 'Python'))
-print("Средняя оценка лекторов по Python:", average_lectors(lecturers, 'Python'))
+print("\nСредняя оценка студентов по Python:", average_student(students, "Python"))
+print("Средняя оценка лекторов по Python:", average_lectors(lecturers, "Python"))

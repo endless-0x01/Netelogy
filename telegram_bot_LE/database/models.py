@@ -1,4 +1,3 @@
-import datetime
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
@@ -37,7 +36,10 @@ class User_Words(Base):
     is_learned = Column(Boolean, nullable=False)
     correct_answers = Column(Integer, default=0)
     total_attempts = Column(Integer, default=0)
-    last_practiced = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_practiced = Column(
+        DateTime,
+        default=lambda: datetime.now(
+            timezone.utc))
 
     word = relationship("Words", backref="user_words")
     user = relationship("Users", backref="word_users")

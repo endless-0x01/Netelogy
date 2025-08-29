@@ -19,8 +19,7 @@ def parese():
             "line_counting": lines,
             "file_number": i,
             "proprietary_information": [
-                    f"Строка номер {index} файла номер {i}"
-                    for index in range(1, lines + 1)
+                f"Строка номер {index} файла номер {i}" for index in range(1, lines + 1)
             ],
         }
 

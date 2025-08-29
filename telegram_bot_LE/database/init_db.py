@@ -60,7 +60,11 @@ def check_words():
         print("\nList words: ")
         for word in words:
             print(
-                f" {word.russian_word} = {word.english_word} | Категория: {word.category} | Общее для всех: {word.is_common}"
+                f" {
+                    word.russian_word} = {
+                    word.english_word} | Категория: {
+                    word.category} | Общее для всех: {
+                    word.is_common}"
             )
 
 

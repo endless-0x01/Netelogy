@@ -1,151 +1,188 @@
+from typing import Optional, Dict, List, Tuple, Union, Any
 from database.database import get_session
-from database.models import Base, User_Words, Users, Words
+from database.models import User_Words, Users, Words
 from datetime import datetime, timezone
 import random
 
 
-def check_user_in_db(telegram_id):
-    with get_session() as session:
-        user = session.query(Users).filter(Users.telegram_id == telegram_id).first()
-        if user:
-            return user
-        else:
-            return False
+def check_user_in_db(telegram_id: int) -> Union[Users, bool]:
+    try:
+        with get_session() as session:
+            user = session.query(Users).filter(
+                Users.telegram_id == telegram_id).first()
+            if user:
+                return user
+            else:
+                return False
+    except Exception as e:
+        print(f"Ошибка при проверке пользователя в БД: {e}")
+        return False
 
 
-def create_user_db(data_user: dict):
-    with get_session() as session:
-        user = session.query(Users).filter(Users.telegram_id == data_user["id"]).first()
-        if user:
-            return user
-
-        user = Users(
-            telegram_id=data_user["id"],
-            username=data_user["login"] if data_user["login"] else None,
-            first_name=data_user["fname"] if data_user["fname"] else None,
-            last_name=data_user["lname"] if data_user["lname"] else None,
-            created_at=datetime.now(timezone.utc),
-        )
-
-        session.add(user)
-        session.commit()
-
-        for word in session.query(Words).all():
-            user_words = User_Words(
-                user_id=user.id,
-                word_id=word.id,
-                is_learned=False,
-                last_practiced=datetime.now(timezone.utc),
+def create_user_db(data_user: Dict[str, Any]) -> Optional[Users]:
+    try:
+        with get_session() as session:
+            user = (
+                session.query(Users)
+                .filter(Users.telegram_id == data_user["id"])
+                .first()
             )
-            session.add(user_words)
-        session.commit()
+            if user:
+                return user
 
-        return user
+            user = Users(
+                telegram_id=data_user["id"],
+                username=data_user["login"] if data_user["login"] else None,
+                first_name=data_user["fname"] if data_user["fname"] else None,
+                last_name=data_user["lname"] if data_user["lname"] else None,
+                created_at=datetime.now(timezone.utc),
+            )
 
+            session.add(user)
+            session.commit()
 
-def get_words_for_user(user_id: int):
-    with get_session() as session:
-        user_words = (
-            session.query(User_Words).filter(User_Words.user_id == user_id).all()
-        )
-        if not user_words:
-            return []
-        random_user_word = random.choice(user_words)
-        word = session.query(Words).filter(Words.id == random_user_word.word_id).first()
+            for word in session.query(Words).all():
+                user_words = User_Words(
+                    user_id=user.id,
+                    word_id=word.id,
+                    is_learned=False,
+                    last_practiced=datetime.now(timezone.utc),
+                )
+                session.add(user_words)
+            session.commit()
 
-        correct_answer = word.english_word
-        wrong_words = (
-            session.query(Words)
-            .filter(Words.english_word != correct_answer)
-            .limit(3)
-            .all()
-        )
-
-        options = [correct_answer]
-        for wrong_word in wrong_words:
-            options.append(wrong_word.english_word)
-
-        random.shuffle(options)
-
-    return {
-        "question_word": word.russian_word,
-        "correct_answer": correct_answer,
-        "options": options,
-        "word_id": word.id,
-    }
+            return user
+    except Exception as e:
+        print(f"Ошибка при создании пользователя в БД: {e}")
+        return None
 
 
-def record_result_user(user_id: int, word_id: int, is_correct: bool):
-    with get_session() as session:
-        user_word = (
-            session.query(User_Words)
-            .filter(User_Words.user_id == user_id, User_Words.word_id == word_id)
-            .first()
-        )
+def get_words_for_user(user_id: int) -> Union[Dict[str, Any], List]:
+    try:
+        with get_session() as session:
+            user_words = (
+                session.query(User_Words).filter(
+                    User_Words.user_id == user_id).all()
+            )
+            if not user_words:
+                return []
+            random_user_word = random.choice(user_words)
+            word = (
+                session.query(Words)
+                .filter(Words.id == random_user_word.word_id)
+                .first()
+            )
 
-        if not user_word:
-            return False
+            if not word:
+                return []
 
-        user_word.total_attempts += 1
-        if is_correct:
-            user_word.correct_answers += 1
+            correct_answer = word.english_word
+            wrong_words = (
+                session.query(Words)
+                .filter(Words.english_word != correct_answer)
+                .limit(3)
+                .all()
+            )
 
-        user_word.last_practiced = datetime.now(timezone.utc)
+            options = [correct_answer]
+            for wrong_word in wrong_words:
+                options.append(wrong_word.english_word)
 
-        session.commit()
+            random.shuffle(options)
 
-    return True
+            return {
+                "question_word": word.russian_word,
+                "correct_answer": correct_answer,
+                "options": options,
+                "word_id": word.id,
+            }
+    except Exception as e:
+        print(f"Ошибка при получении слов для пользователя: {e}")
+        return []
+
+
+def record_result_user(user_id: int, word_id: int, is_correct: bool) -> bool:
+    try:
+        with get_session() as session:
+            user_word = (
+                session.query(User_Words)
+                .filter(
+                    User_Words.user_id == user_id,
+                    User_Words.word_id == word_id,
+                )
+                .first()
+            )
+
+            if not user_word:
+                return False
+
+            user_word.total_attempts += 1
+            if is_correct:
+                user_word.correct_answers += 1
+
+            user_word.last_practiced = datetime.now(timezone.utc)
+
+            session.commit()
+
+            return True
+    except Exception as e:
+        print(f"Ошибка при записи результата пользователя: {e}")
+        return False
 
 
 def add_word_for_user(
     user_id_: int, russian_word_: str, english_word_: str, category_: str
-):
-    with get_session() as session:
-
-        existing_word = (
-            session.query(Words)
-            .join(User_Words, Words.id == User_Words.word_id)
-            .filter(
-                Words.russian_word == russian_word_,
-                Words.english_word == english_word_,
-                User_Words.user_id == user_id_,
+) -> bool:
+    try:
+        with get_session() as session:
+            existing_word = (
+                session.query(Words)
+                .join(User_Words, Words.id == User_Words.word_id)
+                .filter(
+                    Words.russian_word == russian_word_,
+                    Words.english_word == english_word_,
+                    User_Words.user_id == user_id_,
+                )
+                .first()
             )
-            .first()
-        )
-        if existing_word:
-            return False
+            if existing_word:
+                return False
 
-        new_word = Words(
-            russian_word=russian_word_,
-            english_word=english_word_,
-            is_common=False,
-            category=category_,
-            created_at=datetime.now(timezone.utc),
-        )
+            new_word = Words(
+                russian_word=russian_word_,
+                english_word=english_word_,
+                is_common=False,
+                category=category_,
+                created_at=datetime.now(timezone.utc),
+            )
 
-        session.add(new_word)
-        session.commit()
+            session.add(new_word)
+            session.commit()
 
-        user_word = User_Words(
-            user_id=user_id_,
-            word_id=new_word.id,
-            is_learned=False,
-            correct_answers=0,
-            total_attempts=0,
-            last_practiced=datetime.now(timezone.utc),
-        )
+            user_word = User_Words(
+                user_id=user_id_,
+                word_id=new_word.id,
+                is_learned=False,
+                correct_answers=0,
+                total_attempts=0,
+                last_practiced=datetime.now(timezone.utc),
+            )
 
-        session.add(user_word)
-        session.commit()
+            session.add(user_word)
+            session.commit()
 
-        user = session.query(Users).filter(Users.id == user_id_).first()
-        user.words_count += 1
-        session.commit()
+            user = session.query(Users).filter(Users.id == user_id_).first()
+            user.words_count += 1
+            session.commit()
 
-        return True
+            return True
+    except Exception as e:
+        print(f"Ошибка при добавлении слова для пользователя: {e}")
+        return False
 
 
-def find_word_by_name(user_id: int, search_text: str):
+def find_word_by_name(
+        user_id: int, search_text: str) -> List[Tuple[User_Words, Words]]:
     with get_session() as session:
         user_words = (
             session.query(User_Words, Words)
@@ -159,42 +196,47 @@ def find_word_by_name(user_id: int, search_text: str):
     return user_words
 
 
-def delete_word_for_user(user_id_: int, word_id_: int):
-    with get_session() as session:
-        user_words = (
-            session.query(User_Words)
-            .filter(
-                User_Words.user_id == user_id_,
-                User_Words.word_id == word_id_,
-            )
-            .first()
-        )
-        if user_words is None:
-            return False
-
-        word = session.query(Words).filter(Words.id == user_words.word_id).first()
-        if word.is_common:
-            session.delete(user_words)
-        else:
-            other_relations = (
+def delete_word_for_user(user_id_: int, word_id_: int) -> bool:
+    try:
+        with get_session() as session:
+            user_words = (
                 session.query(User_Words)
                 .filter(
-                    User_Words.word_id == word.id,
-                    User_Words.user_id != user_id_,
+                    User_Words.user_id == user_id_,
+                    User_Words.word_id == word_id_,
                 )
                 .first()
             )
-            if other_relations:
+            if user_words is None:
+                return False
+
+            word = session.query(Words).filter(
+                Words.id == user_words.word_id).first()
+            if word.is_common:
                 session.delete(user_words)
             else:
-                session.delete(user_words)
-                session.delete(word)
+                other_relations = (
+                    session.query(User_Words)
+                    .filter(
+                        User_Words.word_id == word.id,
+                        User_Words.user_id != user_id_,
+                    )
+                    .first()
+                )
+                if other_relations:
+                    session.delete(user_words)
+                else:
+                    session.delete(user_words)
+                    session.delete(word)
 
-        session.commit()
-        return True
+            session.commit()
+            return True
+    except Exception as e:
+        print(f"Ошибка при удалении слова для пользователя: {e}")
+        return False
 
 
-def get_user_stats(user_id: int):
+def get_user_stats(user_id: int) -> Union[Dict[str, Any], bool]:
     with get_session() as session:
         user_stats = (
             session.query(User_Words)
@@ -228,7 +270,7 @@ def get_user_stats(user_id: int):
                 session.query(User_Words)
                 .filter(
                     User_Words.user_id == user_id,
-                    User_Words.is_learned == True,
+                    User_Words.is_learned is True,
                 )
                 .all()
             ),

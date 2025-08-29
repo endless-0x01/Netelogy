@@ -64,6 +64,7 @@ def add_phone(conn: connection, client_id: int, phone: str) -> None:
         conn.commit()
         print(f"Телефон {phone} добавлен для клиента {client_id}")
 
+
 def add_phones(conn: connection, client_id: int, phones: list) -> None:
     with conn.cursor() as cur:
 
@@ -72,15 +73,24 @@ def add_phones(conn: connection, client_id: int, phones: list) -> None:
                 cur.execute(
                     """
                     INSERT INTO phone(client_id, phone) VALUES (%s, %s);
-                    """, (client_id, phone) 
+                    """,
+                    (client_id, phone),
                 )
                 print(f"Телефон {phone} добавлен для клиента {client_id}")
             conn.commit()
         else:
-            print(f'Для клиента {client_id} нет телефонов')
+            print(f"Для клиента {client_id} нет телефонов")
 
 
-def change_client(conn: connection, client_id, first_name=None, last_name=None, email=None, phones=None, replace_phone=False) -> None:
+def change_client(
+    conn: connection,
+    client_id,
+    first_name=None,
+    last_name=None,
+    email=None,
+    phones=None,
+    replace_phone=False,
+) -> None:
     with conn.cursor() as cur:
         # Обновляем основные данные клиента
         cur.execute(
@@ -93,7 +103,7 @@ def change_client(conn: connection, client_id, first_name=None, last_name=None, 
         if phones:
             if replace_phone:
                 cur.execute("""DELETE FROM phone WHERE client_id = %s;""", (client_id,))
-                print(f'Телефоны клиента {client_id} удалены')
+                print(f"Телефоны клиента {client_id} удалены")
 
             for phone in phones:
                 cur.execute(
@@ -115,17 +125,24 @@ def delete_phone(conn: connection, client_id: int, phone: str) -> None:
             (client_id, phone),
         )
         conn.commit()
-        print(f'Телефон {phone} удален')
+        print(f"Телефон {phone} удален")
+
 
 def delete_client(conn: connection, client_id: int) -> None:
     with conn.cursor() as cur:
         cur.execute("""DELETE FROM phone WHERE client_id=%s;""", (client_id,))
         cur.execute("""DELETE FROM clients WHERE client_id=%s;""", (client_id,))
         conn.commit()
-        print(f'Клиент {client_id} удален')
+        print(f"Клиент {client_id} удален")
 
 
-def find_client(conn: connection, first_name:str = None, last_name:str = None, email:str = None, phone:str = None) -> None:
+def find_client(
+    conn: connection,
+    first_name: str = None,
+    last_name: str = None,
+    email: str = None,
+    phone: str = None,
+) -> None:
     with conn.cursor() as cur:
         query = """
         SELECT DISTINCT c.client_id, c.first_name, c.last_name, c.email, 
@@ -136,19 +153,19 @@ def find_client(conn: connection, first_name:str = None, last_name:str = None, e
         """
 
         params = []
-        
+
         if first_name:
             query += "AND c.first_name ILIKE %s"
-            params.append(f'%{first_name}%')
+            params.append(f"%{first_name}%")
         if last_name:
             query += "AND c.last_name ILIKE %s"
-            params.append(f'%{last_name}%')
+            params.append(f"%{last_name}%")
         if email:
             query += "AND c.email ILIKE %s"
-            params.append(f'%{email}%')
+            params.append(f"%{email}%")
         if phone:
             query += "AND p.phone ILIKE %s"
-            params.append(f'%{phone}%')
+            params.append(f"%{phone}%")
 
         query += "GROUP BY c.client_id, c.first_name, c.last_name, c.email"
 
@@ -156,11 +173,13 @@ def find_client(conn: connection, first_name:str = None, last_name:str = None, e
         results = cur.fetchall()
 
         if results:
-            print(f'Найдено клиентов: {len(results)}')
+            print(f"Найдено клиентов: {len(results)}")
             for result in results:
-                print(f'ID: {result[0]}, Имя: {result[1]}, Фамилия: {result[2]}, Email: {result[3]}, Телефоны: {result[4]}')
+                print(
+                    f"ID: {result[0]}, Имя: {result[1]}, Фамилия: {result[2]}, Email: {result[3]}, Телефоны: {result[4]}"
+                )
         else:
-            print('Клиенты не найдены')
+            print("Клиенты не найдены")
 
 
 def main():
@@ -175,8 +194,8 @@ def main():
         # change_client(conn, 1, 'Gleb', 'Testovich', 'gleb_test@mail.ru', ['89116567372'], replace_phone=True)
         # delete_client(conn, 1)
         # delete_phone(conn, 1, '89116567372')
-        find_client(conn, 'Alesia', 'Testovich', 'alesia_test@mail.ru', '89997271122')
+        find_client(conn, "Alesia", "Testovich", "alesia_test@mail.ru", "89997271122")
+
 
 if __name__ == "__main__":
     main()
-
