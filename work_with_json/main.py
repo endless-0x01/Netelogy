@@ -1,6 +1,22 @@
 import json
+from datetime import datetime
+import os
 
+def logger(old_function):
+    def new_function(*args, **kwargs):
+        start_time = datetime.now()
+        result = old_function(*args, **kwargs)
+        path = os.path.join(os.path.dirname(__file__), 'main.log')
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(
+                f"[{start_time}] | {old_function.__name__} | args={args} | kwargs={kwargs} | return={result}\n"
+            )
 
+        return result
+
+    return new_function
+
+@logger
 def read_json(file_path, word_min_len=6, top_words_amt=10):
     """
     функция для чтения файла с новостями.

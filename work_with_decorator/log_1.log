@@ -1,0 +1,4 @@
+[2025-09-17 20:37:17.787673] | hello_world | args=() | kwargs={} | return=Hello World
+[2025-09-17 20:37:17.788061] | summator | args=(2, 2) | kwargs={} | return=4
+[2025-09-17 20:37:17.788312] | div | args=(6, 2) | kwargs={} | return=3.0
+[2025-09-17 20:37:17.788608] | summator | args=(4.3,) | kwargs={'b': 2.2} | return=6.5

@@ -6,3 +6,5 @@ work_with_ORM/theory_guide.md
 telegram_bot_LE/database/test_operations.py
 telegram_bot_LE/.env
 test/
+__pycache__/
+.pytest_cache
